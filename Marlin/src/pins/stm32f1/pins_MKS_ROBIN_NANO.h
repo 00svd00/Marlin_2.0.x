@@ -46,6 +46,27 @@
 
 #include "pins_MKS_ROBIN_NANO_common.h"
 
+#if HAS_FSMC_TFT
+    #undef TFT_BUFFER_SIZE
+    #define TFT_BUFFER_SIZE                  320*8
+#endif
+
 #if HAS_TFT_LVGL_UI && FAN1_PIN != PB0 && HEATER_1_PIN != PB0
   #define BOARD_INIT OUT_WRITE(PB0, LOW)
+#endif
+
+/*
+Модуль MKS WIFI
+*/
+#define MKS_WIFI
+
+#ifdef MKS_WIFI
+
+ #define MKS_WIFI_SERIAL_NUM                SERIAL_PORT_2
+ #define MKS_WIFI_UART                      USART1
+  #undef PLATFORM_M997_SUPPORT
+
+ #define MKS_WIFI_IO0                       PA8
+ #define MKS_WIFI_IO4                       PC7
+ #define MKS_WIFI_IO_RST                    PA5
 #endif

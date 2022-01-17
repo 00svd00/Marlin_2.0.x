@@ -1619,6 +1619,10 @@ void setup() {
     SETUP_RUN(easythreed_ui.init());
   #endif
 
+  #if ENABLED(MKS_WIFI)
+    mks_wifi_init();
+  #endif
+  
   marlin_state = MF_RUNNING;
 
   SETUP_LOG("setup() completed.");

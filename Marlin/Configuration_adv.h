@@ -1563,7 +1563,7 @@
   /**
    * Auto-report SdCard status with M27 S<seconds>
    */
-  //#define AUTO_REPORT_SD_STATUS
+  #define AUTO_REPORT_SD_STATUS
 
   /**
    * Support for USB thumb drives using an Arduino USB Host Shield or
@@ -1818,10 +1818,10 @@
 // Specify additional languages for the UI. Default specified by LCD_LANGUAGE.
 //
 #if ANY(DOGLCD, TFT_COLOR_UI, TOUCH_UI_FTDI_EVE, IS_DWIN_MARLINUI)
-  #define LCD_LANGUAGE_2 fr
-  #define LCD_LANGUAGE_3 de
-  #define LCD_LANGUAGE_4 es
-  #define LCD_LANGUAGE_5 it
+  #define LCD_LANGUAGE_2 ru
+  //#define LCD_LANGUAGE_3 de
+  //#define LCD_LANGUAGE_4 es
+  //#define LCD_LANGUAGE_5 it
   #ifdef LCD_LANGUAGE_2
     #define LCD_LANGUAGE_AUTO_SAVE // Automatically save language to EEPROM on change
   #endif

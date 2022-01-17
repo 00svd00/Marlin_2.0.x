@@ -179,6 +179,7 @@
       #define BAUDRATE_2 115200
     #else
       #define SERIAL_PORT_2 1
+      #define BAUDRATE_2 115200
       #define NUM_SERIAL 2
     #endif
   #endif
@@ -2230,13 +2231,46 @@
  *   M502 - Revert settings to "factory" defaults. (Follow with M500 to init the EEPROM.)
  */
 #define EEPROM_SETTINGS       // Persistent storage with M500 and M501
-//#define DISABLE_M503        // Saves ~2700 bytes of PROGMEM. Disable for release!
-#define EEPROM_CHITCHAT       // Give feedback on EEPROM commands. Disable to save PROGMEM.
-#define EEPROM_BOOT_SILENT    // Keep M503 quiet and only give errors during first load
+  //#define DISABLE_M503        // Saves ~2700 bytes of PROGMEM. Disable for release!
+  #define EEPROM_CHITCHAT       // Give feedback on EEPROM commands. Disable to save PROGMEM.
+  #define EEPROM_BOOT_SILENT    // Keep M503 quiet and only give errors during first load
 #if ENABLED(EEPROM_SETTINGS)
-  #define EEPROM_AUTO_INIT  // Init EEPROM automatically on any errors.
-  //#define EEPROM_INIT_NOW   // Init EEPROM on first boot after a new build.
+/*
+MKS Robin EEPROM:
+EEPROM_SD
+EEPROM_W25Q
+*/
+#define EEPROM_W25Q
+
+#if ENABLED(EEPROM_W25Q)
+#undef SDCARD_EEPROM_EMULATION
+#undef USE_REAL_EEPROM
+#undef FLASH_EEPROM_EMULATION
+#undef SRAM_EEPROM_EMULATION
+#undef I2C_EEPROM_AT24C16
+#define SPI_EEPROM_W25Q
+#define SPI_EEPROM
+#define SPI_EEPROM_OFFSET 0x700000
+#define USE_WIRED_EEPROM    1
+#define MARLIN_EEPROM_SIZE  4096
 #endif
+
+#if ENABLED(EEPROM_SD)
+#define SDCARD_EEPROM_EMULATION
+#undef USE_REAL_EEPROM
+#undef FLASH_EEPROM_EMULATION
+#undef SRAM_EEPROM_EMULATION
+#undef I2C_EEPROM_AT24C16
+#undef SPI_EEPROM_W25Q
+#undef USE_WIRED_EEPROM 
+#define MARLIN_EEPROM_SIZE  4096
+#endif
+
+#define EEPROM_AUTO_INIT  // Init EEPROM automatically on any errors.
+//#define EEPROM_INIT_NOW   // Init EEPROM on first boot after a new build.
+#endif
+
+
 
 //
 // Host Keepalive
@@ -2245,7 +2279,7 @@
 // every couple of seconds when it can't accept commands.
 //
 #define HOST_KEEPALIVE_FEATURE        // Disable this if your host doesn't like keepalive messages
-#define DEFAULT_KEEPALIVE_INTERVAL 3  // Number of seconds between "busy" messages. Set with M113.
+#define DEFAULT_KEEPALIVE_INTERVAL 2  // Number of seconds between "busy" messages. Set with M113.
 #define BUSY_WHILE_HEATING            // Some hosts require "busy" messages even during heating
 
 //
@@ -2538,7 +2572,7 @@
  *
  * Use CRC checks and retries on the SD communication.
  */
-//#define SD_CHECK_AND_RETRY
+#define SD_CHECK_AND_RETRY
 
 /**
  * LCD Menu Items

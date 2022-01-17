@@ -1,3 +1,8 @@
+Ported mks_wifi module from this respo
+https://github.com/Sergey1560
+Same bugs? but sd upload is working(somehow)
+Tested only on flsun q5
+
 # Marlin 3D Delta Printer Firmwares
 
 ![GitHub](https://img.shields.io/github/license/marlinfirmware/marlin.svg)

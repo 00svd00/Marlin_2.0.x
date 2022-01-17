@@ -24,11 +24,13 @@
 //#define XP_DEV
 //===================================================
 #ifndef XP_DEV                       // (Default)
+
 /*_______________________1___________________________*/
 //==================== Hardware =====================//
 /*-------------Motherboard/Printer-(1 CHOICE)-------*/
 //#define QQSP                         // (Default_QQS) env = flsun_hispeedv1
-//#define Q5                         // env = mks_robin_nano35 or (Q5_2021) env = mks_robin_nano_v1_3_f4
+#define Q5                         // env = mks_robin_nano35 or (Q5_2021) env = mks_robin_nano_v1_3_f4
+#define DEBUG_TO_UART
                                      // for Q5_2021 = uncomment/comment your MoBo in configuration.h (Line114)
 //#define SR_MKS                     // env = mks_robin_nano_v3_usb_flash_drive_msc
 //#define SR_BTT                     // env = lpc1768
@@ -93,7 +95,7 @@
 * =========================================//
 */
 //#define LCD_LANGUAGE en                // Change for your country ('bg':'Bulgarian', 'ca':'Catalan', 'cz':'Czech', 'da':'Danish', 'el':'Greek', 'fi':'Finnish', 'hr':'Croatian', 'hu':'Hungarian', 'jp_kana':'Japanese', 'nl':'Dutch', 'pl':'Polish', 'pt_br':'Portuguese (Brazilian)', 'ro':'Romanian', 'ru':'Russian', 'sk':'Slovak', 'sv':'Swedish', 'tr':'Turkish', 'uk':'Ukrainian', 'vi':'Vietnamese', 'zh_CN':'Chinese (Simplified)', etc)
-//#define BOOT_MARLIN_LOGO_SMALL         // Small Logo Marlin to reduce de binary. Comment to have normal LOGO(Default).
+#define BOOT_MARLIN_LOGO_SMALL         // Small Logo Marlin to reduce de binary. Comment to have normal LOGO(Default).
 
 /*_________________________________4______________________________*/
           /*---- Extruder, Custom effector and Modules -----*/
@@ -121,6 +123,7 @@
 //#define FKSN                           // Customn effector FRANKENSUN
                   /* Module Socket_Wifi */ 
 #define MOD_WIFI                         //(W) (Default_QQS) With Module ESP8266/ESP12 or Connexion Tx/RX
+#define MKS_WIFI
 //#define ESP3D_30                       //(w) Enable firmware ESP3D v3.0 (ESP8266/ESP12) only with TFT_LVGL_UI
 
                   /* Option for Neopixel */
@@ -204,6 +207,7 @@
 //----------Options Plus-----------//
 //#define SDCARD_SORT_ALPHA
 //#define SD_REPRINT_LAST_SELECTED_FILE // Reselect last print file.
+#define SD_CHECK_AND_RETRY
 
 //-----------------------------//
 //For tests on my dev'printer!!//
