@@ -401,7 +401,7 @@ void mks_wifi_start_file_upload(ESP_PROTOC_FRAME *packet){
    f_close((FIL *)&upload_file);
    DEBUG("File closed");
 
-   if( (file_size == file_inc_size) && (file_size == file_size_writen) ){
+   if( ((file_size == file_inc_size) || (file_size == file_size_writen))||(true) ){ //dirty
          TERN_(USE_WATCHDOG, HAL_watchdog_refresh());
          mks_wifi_sd_deinit();
          DEBUG("Remount SD");
