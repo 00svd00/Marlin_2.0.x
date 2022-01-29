@@ -3,14 +3,10 @@
 #include "../../module/printcounter.h"
 #include "../../libs/duration_t.h"
 
-
-
 const uint8_t pak[5]={0xA5,0x07,0x00,0x00,0xFC};
-
 const char m997_idle[]="M997 IDLE\n";
 const char m997_printing[]="M997 PRINTING\n";
 const char m997_pause[]="M997 PAUSE\n";
-
 const char m115_firmware[]="FIRMWARE_NAME:TFT24\n";
 
 void mks_m991(void){
@@ -110,7 +106,10 @@ void mks_m27(void){
 
 void mks_m30(char *filename){
   
-  filename[0]='0';
+  if( (filename[0] == '1') && (filename[1]=':') ){ //Full path form Cura "1:/filename"
+    filename[0]='0';
+  }
+  
   DEBUG("M30: %s",filename);
   sd_delete_file(filename);
 
