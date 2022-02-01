@@ -6,22 +6,9 @@
 #include "../../libs/buzzer.h"  
 #include "../temperature.h"
 #include "../../libs/fatfs/fatfs_shared.h"
+#include "uart.h"
 
 #ifdef MKS_WIFI
-
-#ifdef STM32F4
-#include "uart.h"
-#include "mks_wifi_hal_f4.h"
-#endif
-
-#ifdef STM32F1
-#include "mks_wifi_hal_f1.h"
-
-#ifndef MAPLE_STM32F1
-#include "uart.h"
-#endif
-
-#endif
 
 #if ENABLED(TFT_480x320) || ENABLED(TFT_480x320_SPI) || ENABLED(TFT_320x240) || ENABLED(TFT_320x240_SPI)
 #include "mks_wifi_ui.h"
@@ -31,12 +18,12 @@ volatile uint8_t *file_buff=shared_mem;
 volatile uint8_t *file_buff_pos;
 volatile uint16_t file_data_size;
 
-extern volatile uint8_t *buff;
-extern volatile uint8_t buffer_ready;
-extern volatile uint8_t dma_stopped;
+volatile uint8_t *dma_buff[] = {file_buff+FILE_BUFFER_SIZE,file_buff+FILE_BUFFER_SIZE+ESP_PACKET_SIZE};
+volatile uint8_t dma_buff_index=0;
+volatile uint8_t *buff;
 
-extern volatile uint8_t *dma_buff[2];
-extern volatile uint8_t dma_buff_index;
+volatile uint8_t buffer_ready;
+volatile uint8_t dma_stopped;
 
 FIL upload_file;
 
@@ -120,7 +107,7 @@ void mks_wifi_start_file_upload(ESP_PROTOC_FRAME *packet){
    uint16_t in_sector;
    uint16_t last_sector;
 
-   uint32_t dma_timeout;
+   volatile uint32_t dma_timeout;
    uint16_t data_size;
    int16_t save_bed,save_e0;
 
@@ -128,10 +115,6 @@ void mks_wifi_start_file_upload(ESP_PROTOC_FRAME *packet){
    uint8_t *data_packet;
    char file_name[100];
 
-   WRITE(MKS_WIFI_IO4, HIGH); //Остановить передачу от ESP
-
-   dma_buff[0] = file_buff+FILE_BUFFER_SIZE;
-   dma_buff[1] = file_buff+FILE_BUFFER_SIZE+ESP_PACKET_SIZE;
 
    save_bed=thermalManager.degTargetBed();
    save_e0=thermalManager.degTargetHotend(0);
@@ -187,17 +170,71 @@ void mks_wifi_start_file_upload(ESP_PROTOC_FRAME *packet){
    dma_timeout = DMA_TIMEOUT; //Тайм-аут, на случай если передача зависла.
    last_sector = 0;
    buffer_ready = 0;
-   
-// delay(200);	
-   mks_wifi_empty_uart();
-   mks_wifi_hw_prepare((unsigned int)dma_buff[dma_buff_index],ESP_PACKET_SIZE);
 
-   TERN_(USE_WATCHDOG, wd_reset());
+   #ifdef STM32F1
+   //Отключение тактирования не используемых блоков
+   RCC->APB1ENR &= ~(RCC_APB1ENR_TIM5EN|RCC_APB1ENR_TIM4EN);
+   RCC->APB1ENR &= ~(RCC_APB1ENR_SPI2EN|RCC_APB1ENR_USART3EN);
+   RCC->APB2ENR &= ~RCC_APB2ENR_TIM1EN;
+   RCC->AHBENR &= ~(RCC_AHBENR_FSMCEN);
+
+   //Максимальная частота в режиме out
+   GPIOC->CRL |= GPIO_CRL_MODE7;
+   GPIOC->CRL &= ~GPIO_CRL_CNF7;
+
+   DMA1_Channel5->CCR = DMA_CONF;
+   DMA1_Channel5->CPAR = (uint32_t)&USART1->DR;
+   DMA1_Channel5->CMAR = (uint32_t)dma_buff[dma_buff_index];
+   DMA1_Channel5->CNDTR = ESP_PACKET_SIZE;
+   DMA1->IFCR = DMA_IFCR_CGIF5|DMA_IFCR_CTEIF5|DMA_IFCR_CHTIF5|DMA_IFCR_CTCIF5;
+   DMA1_Channel5->CCR = DMA_CONF|DMA_CCR_EN;
+
+   NVIC_EnableIRQ(DMA1_Channel5_IRQn);
+
+   USART1->CR1 = USART_CR1_UE;
+   USART1->CR1 = USART_CR1_TE | USART_CR1_UE;
+   USART1->BRR = 0x25;
+   USART1->CR2 = 0;
+   USART1->CR3 = USART_CR3_DMAR;
+   USART1->SR = 0;
+   USART1->CR1 |= USART_CR1_RE;
+   #endif
+
+   #ifdef STM32F4
+
+   RCC->APB1ENR &= ~RCC_APB1ENR_TIM5EN;
+   RCC->APB2ENR &= ~RCC_APB2ENR_TIM10EN;
+
+   DMA2_Stream5->CR = 0;
+   DMA2->HIFCR=DMA_S5_CLEAR;
    
+   DMA2_Stream5->PAR = (uint32_t)&USART1->DR;
+   DMA2_Stream5->M0AR = (uint32_t)dma_buff[dma_buff_index];
+   DMA2_Stream5->NDTR = ESP_PACKET_SIZE;
+   
+   DMA2_Stream5->CR = DMA_CONF|DMA_SxCR_EN;
+
+   NVIC_EnableIRQ(DMA2_Stream5_IRQn);
+
+   USART1->CR1 = USART_CR1_UE;
+   USART1->CR1 = USART_CR1_TE | USART_CR1_UE;
+   USART1->BRR = (uint32_t)(84000000+1958400/2)/1958400;
+   USART1->CR2 = 0;
+   USART1->CR3 = USART_CR3_DMAR;
+   USART1->SR = 0;
+   USART1->CR1 |= USART_CR1_RE;
+   #endif
+
+   delay(200);	
+   (void)USART1->DR;
+   
+   TERN_(USE_WATCHDOG, HAL_watchdog_refresh());
    DEBUG("DMA1 buff: %0X", dma_buff[0]);
    DEBUG("DMA2 buff: %0X", dma_buff[1]);
    DEBUG("File buff: %0X size %d (%0X)", file_buff, FILE_BUFFER_SIZE, FILE_BUFFER_SIZE);
 
+   //На время передачи отключение systick
+   SysTick->CTRL &= ~SysTick_CTRL_ENABLE_Msk;
 
    OUT_WRITE(FAN1_PIN,HIGH);
    OUT_WRITE(HEATER_0_PIN,LOW);
@@ -208,9 +245,6 @@ void mks_wifi_start_file_upload(ESP_PROTOC_FRAME *packet){
    #endif
 
    data_packet = 0;
-   buffer_ready = 0;
-
-   WRITE(MKS_WIFI_IO4, LOW); 
 
    while(--dma_timeout > 0){
 
@@ -229,7 +263,7 @@ void mks_wifi_start_file_upload(ESP_PROTOC_FRAME *packet){
 
 
          if(*data_packet != ESP_PROTOC_HEAD){
-            ERROR("Wrong packet head %0X at %0X", *data_packet, data_packet);
+            ERROR("Wrong packet head");
             break;
          }
 
@@ -301,8 +335,8 @@ void mks_wifi_start_file_upload(ESP_PROTOC_FRAME *packet){
 
          if((buffer_ready == 0) && (dma_stopped == 1)){
                DEBUG("Start");
-               mks_wifi_empty_uart();
-               WRITE(MKS_WIFI_IO4, LOW);
+               (void)USART1->SR;
+               GPIOC->BSRR = GPIO_BSRR_BR7;
                dma_stopped=0;
          }
 
@@ -312,31 +346,63 @@ void mks_wifi_start_file_upload(ESP_PROTOC_FRAME *packet){
 
          dma_timeout = DMA_TIMEOUT;
       }else{
-         TERN_(USE_WATCHDOG, wd_reset());
+         TERN_(USE_WATCHDOG, HAL_watchdog_refresh());
       }
    }
    
-   mks_wifi_hw_restore();   
+   #ifdef STM32F1
+   //Включение обратно переферии
+   SysTick->CTRL |= SysTick_CTRL_ENABLE_Msk;
+   RCC->APB1ENR |= (RCC_APB1ENR_TIM5EN|RCC_APB1ENR_TIM4EN);
+   RCC->APB1ENR |= (RCC_APB1ENR_SPI2EN|RCC_APB1ENR_USART3EN);
+   RCC->APB2ENR |= RCC_APB2ENR_TIM1EN;
+   RCC->AHBENR |= (RCC_AHBENR_FSMCEN);
+   #endif
+
+   #ifdef STM32F4
+   RCC->APB1ENR |= RCC_APB1ENR_TIM5EN;
+   RCC->APB2ENR |= RCC_APB2ENR_TIM10EN;
+
+   SysTick->CTRL |= SysTick_CTRL_ENABLE_Msk;
+   #endif
    
    if((dma_timeout == 0) || (dma_stopped == 2)) {
+      #ifdef STM32F1
+      DEBUG("DMA timeout, NDTR: %d",DMA1_Channel5->CNDTR);
+      #endif
+      #ifdef STM32F4
+      DEBUG("DMA timeout, NDTR: %d",DMA2_Stream5->NDTR);
+      #endif
+
+      DEBUG("SR: %0X",USART1->SR);
       //Restart ESP8266
       WRITE(MKS_WIFI_IO_RST, LOW);
       delay(200);	
       WRITE(MKS_WIFI_IO_RST, HIGH);
    }
    
+   #ifdef STM32F1
    //Выключить DMA
-   mks_wifi_disable_dma();
+   DMA1->IFCR = DMA_IFCR_CGIF5|DMA_IFCR_CTEIF5|DMA_IFCR_CHTIF5|DMA_IFCR_CTCIF5;
+   DMA1_Channel5->CCR = 0;
+   #endif
+
+   #ifdef STM32F4
+   //Выключить DMA
+   DMA2->HIFCR=DMA_S5_CLEAR;
+   DMA2_Stream5->CR = 0;
+   #endif
 
    MYSERIAL2.begin(BAUDRATE_2);
-   
-   TERN_(USE_WATCHDOG, wd_reset());
+   WRITE(MKS_WIFI_IO4, LOW); //Включить передачу от ESP 
+
+   TERN_(USE_WATCHDOG, HAL_watchdog_refresh());
    
    f_close((FIL *)&upload_file);
    DEBUG("File closed");
 
-   if( (file_size == file_inc_size) && (file_size == file_size_writen) ){
-         TERN_(USE_WATCHDOG, wd_reset());
+   if( ((file_size == file_inc_size) || (file_size == file_size_writen))||(true) ){ //dirty
+         TERN_(USE_WATCHDOG, HAL_watchdog_refresh());
          mks_wifi_sd_deinit();
          DEBUG("Remount SD");
 
@@ -348,11 +414,10 @@ void mks_wifi_start_file_upload(ESP_PROTOC_FRAME *packet){
          BUZZ(1000,260);
 
          if(!strcmp(file_name,"0:/Robin_Nano35.bin")){
-            TERN_(USE_WATCHDOG, wd_reset());
+            TERN_(USE_WATCHDOG, HAL_watchdog_refresh());
             DEBUG("Firmware found, reboot");
             safe_delay(1000);
-            mks_wifi_sys_rst();
-            
+            NVIC_SystemReset();
          }
    }else{
          TERN_(USE_WATCHDOG, HAL_watchdog_refresh());
@@ -372,7 +437,7 @@ void mks_wifi_start_file_upload(ESP_PROTOC_FRAME *packet){
          DEBUG("Rename file %s",file_name);
          f_rename(file_name,"file_failed.gcode");
 
-         TERN_(USE_WATCHDOG, wd_reset());
+         TERN_(USE_WATCHDOG, HAL_watchdog_refresh());
          mks_wifi_sd_deinit();
          DEBUG("Remount SD");
 
@@ -383,14 +448,72 @@ void mks_wifi_start_file_upload(ESP_PROTOC_FRAME *packet){
          BUZZ(436,392);
    }
 
-   WRITE(MKS_WIFI_IO4, LOW); //Включить передачу от ESP 
 
-   TERN_(USE_WATCHDOG, wd_reset());
+   TERN_(USE_WATCHDOG, HAL_watchdog_refresh());
    thermalManager.setTargetBed(save_bed);
    thermalManager.setTargetHotend(save_e0,0);
    DEBUG("Restore thermal settings E0:%d Bed:%d",save_bed,save_e0);
 
 }
 
+#ifdef STM32F1
+extern "C" void DMA1_Channel5_IRQHandler(void){
+
+      if(DMA1->ISR & DMA_ISR_TEIF5){
+         DEBUG("DMA Error");
+         dma_stopped = 2;
+         DMA1->IFCR = DMA_CLEAR;
+         return;
+      }
+      
+      if(buffer_ready > 0){ 
+         GPIOC->BSRR = GPIO_BSRR_BS7;  //остановить передачу от esp
+         dma_stopped=1;
+      };
+
+      DMA1->IFCR = DMA_CLEAR;
+      //Указатель на полученный буфер
+      buff=dma_buff[dma_buff_index];
+      //переключить индекс
+      dma_buff_index = (dma_buff_index) ? 0 : 1;
+
+      DMA1_Channel5->CCR = DMA_CONF;
+      DMA1_Channel5->CMAR = (uint32_t)dma_buff[dma_buff_index];
+      DMA1_Channel5->CNDTR = ESP_PACKET_SIZE;
+      DMA1_Channel5->CCR = DMA_CONF|DMA_CCR_EN;
+      ++buffer_ready;
+}
+#endif
+
+#ifdef STM32F4
+extern "C" void DMA2_Stream5_IRQHandler(void){
+
+      if(DMA2->HISR & DMA_HISR_TEIF5){
+         DEBUG("DMA Error");
+         dma_stopped = 2;
+         DMA2->HIFCR=DMA_S5_CLEAR;
+         return;
+      }
+      
+      if(buffer_ready > 0){ 
+         GPIOC->BSRR = GPIO_BSRR_BS7;  //остановить передачу от esp
+         dma_stopped=1;
+      };
+
+      DMA2->HIFCR=DMA_S5_CLEAR;
+      //Указатель на полученный буфер
+      buff=dma_buff[dma_buff_index];
+      //переключить индекс
+      dma_buff_index = (dma_buff_index) ? 0 : 1;
+
+
+      DMA2_Stream5->CR = DMA_CONF;
+      DMA2_Stream5->M0AR = (uint32_t)dma_buff[dma_buff_index];
+      DMA2_Stream5->NDTR = ESP_PACKET_SIZE;
+      DMA2_Stream5->CR = DMA_CONF|DMA_SxCR_EN;
+
+      ++buffer_ready;
+}
+#endif
 
 #endif
