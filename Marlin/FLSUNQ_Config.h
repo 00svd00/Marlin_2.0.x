@@ -64,7 +64,7 @@
  * -- TMC2208_STANDALONE/TMC2209_STANDALONE/TMC2208/TMC2209. ---//
  * =============================================================//
  */
-//#define DRIVER_EXT xxxxxx    //TMC2209_STANDALONE //A4988//TMC2209  // LV8729//
+#define DRIVER_EXT TMC2209_STANDALONE    //TMC2209_STANDALONE //A4988//TMC2209  // LV8729//
 //Only WITH Q5 older stepper(A4988/DRV8825/LV8729)
 //#define INV_EXT
 
@@ -114,7 +114,7 @@
 //#define EXTRUDER_STEPS 562             // Ajust your eSteps.
 
 // BMG_right Extruder (B) step(417) ou SuperDriveHX Extruder (n) step(720).
-//#define BMG                            //(B) Uncommment for BMG_left.
+#define BMG                            //(B) Uncommment for BMG_left.
 //#define NEMA14                         //(X) Uncommment for Mini-Sherpa/SuperDrive/Lgx.
 //#define OMG                            //(O) Uncommment for OMG.
                   /*  Custom Effector  */
@@ -392,7 +392,7 @@
   #ifdef NEMA14
     #define EXTRUDER_STEPS 720  // Extruder SuperHX, Mini-Sherpa, Orbiter, LGX_Lite
   #elif ANY(BMG, SR_MKS, SR_BTT)
-    #define EXTRUDER_STEPS 417  // Extruder BMG(Left/Right)
+    #define EXTRUDER_STEPS 409  // Extruder BMG(Left/Right)
   #elif ENABLED(OMG)           
     #define EXTRUDER_STEPS 390
   #else

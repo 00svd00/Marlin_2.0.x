@@ -1,3 +1,5 @@
+This branch is configured for my printer with BMG extruder and TMC2209
+
 Ported mks_wifi module from this respo
 https://github.com/Sergey1560
 Same bugs? but sd upload is working(somehow)
